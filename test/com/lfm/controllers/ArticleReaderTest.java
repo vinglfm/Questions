@@ -7,7 +7,10 @@ import org.junit.runner.RunWith;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLDecoder;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
@@ -23,8 +26,8 @@ public class ArticleReaderTest {
 
 
     public Object[] getFiles() throws URISyntaxException {
-        Path smallArticle = Paths.get(getClass().getResource("/TodoList.txt").toURI());
-        Path mediumArticle = Paths.get("TodoList.txt");
+       Path smallArticle = Paths.get("test/resources/java.txt");
+       Path mediumArticle = Paths.get("test/resources/serializable.txt");
 
         return new Object[]{inputDataForPath(smallArticle), inputDataForPath(mediumArticle)};
     }

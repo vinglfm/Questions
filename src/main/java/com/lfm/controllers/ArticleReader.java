@@ -40,10 +40,8 @@ public class ArticleReader {
                 Integer count = words.get(elem);
                 if(count == null) {
                     count = 0;
-                } else {
-                    ++count;
                 }
-                words.put(elem, count);
+                words.put(elem, ++count);
             }
             line = bufferedReader.readLine();
         }
