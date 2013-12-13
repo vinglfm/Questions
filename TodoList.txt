@@ -1,3 +1,5 @@
 #1
-Choose a lenguage to write in, 
+Choose a language to write in,
 Create a repo...
+
+#2
