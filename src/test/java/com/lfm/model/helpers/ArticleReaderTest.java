@@ -32,8 +32,10 @@ public class ArticleReaderTest {
     }
 
     private InputData inputDataForPath(Path path) {
-        Map<String, Integer> words = new HashMap<>();
-        Article expectedArticle = new Article(words);
+        Map<String, Integer> unigram = new HashMap<>();
+        Map<String, Integer> bigram = new HashMap<>();
+        Map<String, Integer> trigram = new HashMap<>();
+        Article expectedArticle = new Article(unigram, bigram, trigram);
         return new InputData(path, expectedArticle);
     }
 

@@ -34,7 +34,7 @@ public class ArticleReader {
 
     private void createArticle(Path pathToArticle) throws IOException {
         BufferedReader bufferedReader = Files.newBufferedReader(pathToArticle, Charset.defaultCharset());
-        article = new Article(articleParser.parseTextFromPath(bufferedReader));
+        article = articleParser.parseText(bufferedReader);
     }
 
 
