@@ -58,6 +58,7 @@ call
 can
 cannot
 cant
+can't
 co
 computer
 con
@@ -113,6 +114,7 @@ go
 had
 has
 hasnt
+hasn't
 have
 he
 hence
@@ -139,8 +141,10 @@ indeed
 interest
 into
 is
+isn't
 it
 its
+it's
 itself
 keep
 last

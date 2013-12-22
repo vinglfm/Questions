@@ -2,14 +2,12 @@ package com.lfm.model.parsers;
 
 
 import com.lfm.model.Article;
+import com.lfm.model.helpers.StopWordsHelper;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -17,7 +15,11 @@ import java.util.regex.Pattern;
  * Works only for EN locale at the moment?
  */
 public enum ArticleParsers implements ArticleParser {
+
     SIMPLE_ARTICLE_PARSER {
+        private final String WORD_SPLITTING_REGEX = "[^\\w'-]+";
+        private final Pattern pattern = Pattern.compile(WORD_SPLITTING_REGEX);
+
         @Override
         public Article parseText(BufferedReader bufferedReader) throws IOException {
             Map<String, Integer> unigram = new HashMap<>();
@@ -25,6 +27,7 @@ public enum ArticleParsers implements ArticleParser {
             Map<String, Integer> trigram = new HashMap<>();
 //            BreakIterator breakIterator = BreakIterator.getSentenceInstance(Locale.ENGLISH);
             String line = bufferedReader.readLine();
+            TrigramCollocation previousWords = new TrigramCollocation();
             String previousWord = null;
             while (line != null) {
 //                breakIterator.setText(line);
@@ -34,7 +37,7 @@ public enum ArticleParsers implements ArticleParser {
 //                    line = line;//line.substring(start, end);
                 unigramParsing(unigram, line);
                 previousWord = bigramParsing(bigram, line, previousWord);
-                trigramParsing(trigram, line);
+                previousWords = trigramParsing(trigram, line, previousWords);
 //                }
                 line = bufferedReader.readLine();
             }
@@ -42,83 +45,126 @@ public enum ArticleParsers implements ArticleParser {
         }
 
         private void unigramParsing(Map<String, Integer> unigram, String text) {
-            String wordRegex = "[^\\w'-]+";
-            for (String elem : text.split(wordRegex)) {
-                countWord(unigram, elem);
+
+            String lowerCaseWord;
+            for (String word : text.split(WORD_SPLITTING_REGEX)) {
+                lowerCaseWord = word.toLowerCase();
+                if (!StopWordsHelper.INSTANCE.isStopWord(lowerCaseWord)) {
+                    countWord(unigram, lowerCaseWord);
+                }
             }
         }
 
         private String bigramParsing(Map<String, Integer> bigram, String text, String previousWord) {
-            String regexp = "[^\\w'-]+";//"([?\\W|\\p{Punct}]+)";
-            Pattern pattern = Pattern.compile(regexp);
-
             Matcher matcher = pattern.matcher(text);
             int begIndex = 0;
             String begWord = previousWord;
-            String collocation;
-            String word;
+            String collocation, word;
             while (matcher.find()) {
-                word = text.substring(begIndex, matcher.start());
+                word = text.substring(begIndex, matcher.start()).toLowerCase();
                 if (word.length() > 1) {
-                    if (begWord != null) {
-                        collocation = new StringBuilder(begWord).append(" ").append(word).toString();
-                        countWord(bigram, collocation);
+                    if (!StopWordsHelper.INSTANCE.isStopWord(word)) {
+                        if (begWord != null) {
+                            collocation = new StringBuilder(begWord).append(" ").append(word).toString();
+                            countWord(bigram, collocation);
+                        }
+                        begWord = " ".equals(matcher.group()) ? word : null;
                     }
-                    begWord = " ".equals(matcher.group()) ? word : null;
                 } else {
                     begWord = null;
                 }
                 begIndex = matcher.end();
             }
             if (begIndex != text.length()) {
-                word = text.substring(begIndex);
-                if (begWord != null) {
-                    collocation = new StringBuilder(begWord).append(" ").append(word).toString();
-                    countWord(bigram, collocation);
+                word = text.substring(begIndex).toLowerCase();
+                if (!StopWordsHelper.INSTANCE.isStopWord(word)) {
+                    if (begWord != null) {
+                        collocation = new StringBuilder(begWord).append(" ").append(word).toString();
+                        countWord(bigram, collocation);
+                    }
+                    begWord = word;
                 }
-                begWord = word;
             }
             return begWord;
         }
 
-        private void trigramParsing(Map<String, Integer> bigram, String text) {
+        private TrigramCollocation trigramParsing(Map<String, Integer> trigram, String text, TrigramCollocation previousWords) {
+            Matcher matcher = pattern.matcher(text);
+            int begIndex = 0;
+            TrigramCollocation begWords = previousWords;
+            String word;
+            while (matcher.find()) {
+                word = text.substring(begIndex, matcher.start()).toLowerCase();
+                if (word.length() > 1) {
+                    if (!StopWordsHelper.INSTANCE.isStopWord(word)) {
+                        if (begWords.addWord(word)) {
+                            countWord(trigram, begWords.toString());
+                            begWords.shiftWords();
+                        }
 
+                        if (!" ".equals(matcher.group())) {
+                            begWords.clear();
+                        }
+                    }
+                } else {
+                    begWords.clear();
+                }
+                begIndex = matcher.end();
+            }
+            if (begIndex != text.length()) {
+                word = text.substring(begIndex).toLowerCase();
+                if (!StopWordsHelper.INSTANCE.isStopWord(word)) {
+                    if (begWords.addWord(word)) {
+                        countWord(trigram, begWords.toString());
+                        begWords.shiftWords();
+                    }
+                }
+            }
+            return begWords;
         }
-
 
         private void countWord(Map<String, Integer> map, String collocation) {
-            collocation = collocation.toLowerCase();
-            Integer count = map.get(collocation);
-            if (count == null) {
-                count = 0;
+            if (!StopWordsHelper.INSTANCE.isStopWord(collocation)) {
+                Integer count = map.get(collocation);
+                if (count == null) {
+                    count = 0;
+                }
+                map.put(collocation, ++count);
             }
-            map.put(collocation, ++count);
-        }
-    },
-    SINGLE_WORD_AMBIGUITY_PARSER {
-        @Override
-        public Article parseText(BufferedReader reader) throws IOException {
-
-            return null;
         }
     };
-    private static final String STOP_WORDS_PATH = "src/main/java/resources/stopwords.txt";
 
-    static {
-        Set<String> words = new HashSet<>();
-        Path pathToStopWords = Paths.get(STOP_WORDS_PATH);
-        try {
-            BufferedReader br = Files.newBufferedReader(pathToStopWords, Charset.defaultCharset());
-            String word;
-            while ((word = br.readLine()) != null) {
-                words.add(word);
+    private static class TrigramCollocation {
+        private static final int WORD_NUMBER = 3;
+        private final String[] wordBuilder = new String[WORD_NUMBER];
+        private int wordsCounter = 0;
+
+        private boolean addWord(String word) {
+            wordBuilder[wordsCounter++] = word;
+            return wordsCounter < WORD_NUMBER ? false : true;
+        }
+
+        private void shiftWords() {
+            for(int i = 1; i < wordsCounter; ++i) {
+                wordBuilder[i - 1] = wordBuilder[i];
             }
-            stopWords = Collections.unmodifiableSet(words);
-        } catch (IOException e) {
-            //TODO: use some apache4 logger ?
-            stopWords = Collections.emptySet();
+            wordBuilder[wordsCounter - 1] = null;
+            --wordsCounter;
+        }
+
+        private void clear() {
+            wordsCounter = 0;
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < wordsCounter - 1; ++i) {
+                sb.append(wordBuilder[i]);
+                sb.append(" ");
+            }
+            sb.append(wordBuilder[wordsCounter - 1]);
+            return sb.toString();
         }
     }
-
-    private static Set<String> stopWords;
 }
